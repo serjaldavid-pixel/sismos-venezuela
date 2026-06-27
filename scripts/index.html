@@ -75,7 +75,7 @@
       <h1>MONITOR SÍSMICO — VENEZUELA <span id="range"></span></h1>
       <button id="toggleSide">☰ Lista</button>
     </div>
-    <div class="sub">Fuentes: USGS · EMSC · IRIS · FUNVISIS* · Última actualización: <span id="lastUpdate">—</span></div>
+    <div class="sub">Fuentes: USGS · EMSC · SGC-Col · FUNVISIS* · Última actualización: <span id="lastUpdate">—</span></div>
     <svg id="seismo" viewBox="0 0 600 34" preserveAspectRatio="none"><path id="seismoPath" d=""></path></svg>
   </header>
   <div id="main">
@@ -97,13 +97,13 @@
       <div id="sources">
         <label><input type="checkbox" id="srcUsgs" checked><span class="dot" style="background:#C792EA"></span>USGS <span id="cUsgs"></span></label>
         <label><input type="checkbox" id="srcEmsc" checked><span class="dot" style="background:#27D9C5"></span>EMSC <span id="cEmsc"></span></label>
-        <label><input type="checkbox" id="srcIris" checked><span class="dot" style="background:#F5A623"></span>IRIS <span id="cIris"></span></label>
+        <label><input type="checkbox" id="srcSgc" checked><span class="dot" style="background:#F5A623"></span>SGC-Col <span id="cSgc"></span></label>
         <label><input type="checkbox" id="srcFunvisis" checked><span class="dot" style="background:#6FB6FF"></span>FUNVISIS <span id="cFunvisis"></span></label>
       </div>
       <div id="list"><div id="emptyState">Cargando datos…</div></div>
       <footer>
-        Redes internacionales: USGS · EMSC · IRIS · actualiza cada 5 min<br>
-        *FUNVISIS puede no cargar en la versión online. Microsismos M1-M2 (solo red nacional):
+        Redes: USGS · EMSC (global) · SGC-Col (frontera oeste) · actualiza cada 5 min<br>
+        *FUNVISIS puede no cargar online. Microsismos M1-M2 (red nacional):
         <a href="http://www.funvisis.gob.ve/monitor.html" target="_blank" rel="noopener">FUNVISIS ↗</a>
       </footer>
     </div>
@@ -116,7 +116,7 @@
     funvisis:{label:'FUNVISIS',color:null,dash:null,icon:'●'},
     usgs:{label:'USGS',color:'#C792EA',dash:'2,2',icon:'◇'},
     emsc:{label:'EMSC',color:'#27D9C5',dash:'1,3',icon:'△'},
-    iris:{label:'IRIS',color:'#F5A623',dash:'5,3',icon:'▽'}
+    sgc:{label:'SGC-Col',color:'#F5A623',dash:'5,3',icon:'▽'}
   };
   var allEvents = [];
 
@@ -137,7 +137,7 @@
       funvisis: document.getElementById('srcFunvisis').checked,
       usgs: document.getElementById('srcUsgs').checked,
       emsc: document.getElementById('srcEmsc').checked,
-      iris: document.getElementById('srcIris').checked
+      sgc: document.getElementById('srcSgc').checked
     };
     var combined = allEvents.filter(function(ev){ return active[ev.source] && ev.mag >= minMag; });
 
@@ -206,7 +206,7 @@
       document.getElementById('cFunvisis').textContent = c.funvisis!=null?'('+c.funvisis+')':'';
       document.getElementById('cUsgs').textContent = c.usgs!=null?'('+c.usgs+')':'';
       document.getElementById('cEmsc').textContent = c.emsc!=null?'('+c.emsc+')':'';
-      document.getElementById('cIris').textContent = c.iris!=null?'('+c.iris+')':'';
+      document.getElementById('cSgc').textContent = c.sgc!=null?'('+c.sgc+')':'';
       document.getElementById('lastUpdate').textContent = (data.updated||'—') +
         ((data.errors&&data.errors.length)?' · sin respuesta: '+data.errors.join(' · '):'');
       render();
@@ -223,7 +223,7 @@
   document.getElementById('minMag').addEventListener('input',function(e){
     document.getElementById('minMagVal').textContent=parseFloat(e.target.value).toFixed(1); render();
   });
-  ['srcFunvisis','srcUsgs','srcEmsc','srcIris'].forEach(function(id){ document.getElementById(id).addEventListener('change',render); });
+  ['srcFunvisis','srcUsgs','srcEmsc','srcSgc'].forEach(function(id){ document.getElementById(id).addEventListener('change',render); });
   document.getElementById('refreshBtn').addEventListener('click',forceRefresh);
   document.getElementById('toggleSide').addEventListener('click',function(){ document.getElementById('side').classList.toggle('open'); });
 

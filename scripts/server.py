@@ -182,51 +182,53 @@ def fetch_funvisis():
     return unique
 
 
-def fetch_iris():
-    # IRIS/EarthScope FDSN event service. Formato 'text' (pipe-delimited), liviano.
-    url = (
-        "https://service.iris.edu/fdsnws/event/1/query?format=text"
-        f"&starttime={START_DATE}&endtime={_iso_end()}"
-        f"&minlatitude={BBOX['minlat']}&maxlatitude={BBOX['maxlat']}"
-        f"&minlongitude={BBOX['minlon']}&maxlongitude={BBOX['maxlon']}"
-        "&orderby=time&nodata=404"
-    )
+def fetch_sgc():
+    # Servicio Geológico Colombiano — feed GeoJSON oficial (el mismo que usa su visor).
+    # Fuente regional INDEPENDIENTE: detecta sismos en territorio venezolano
+    # (frontera oeste, costa, Andes) con sus propias estaciones.
+    # Endpoint real descubierto vía el visor oficial sgc.gov.co/sismos.
+    url = "https://archive.sgc.gov.co/feed/v1.0.1/summary/sixty_days_4.json"
     r = requests.get(url, headers=HTTP_HEADERS, timeout=TIMEOUT)
-    if r.status_code == 404:
-        return []  # 404 = sin eventos en el rango (respuesta válida del estándar FDSN)
     r.raise_for_status()
     out = []
-    # Cabecera: EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName
-    for line in r.text.splitlines():
-        if not line or line.startswith("#") or line.startswith("EventID"):
+    start_ms = int(dt.datetime.fromisoformat(START_DATE + "T00:00:00-04:00").timestamp() * 1000)
+    for f in r.json().get("features", []):
+        p = f.get("properties", {})
+        c = f.get("geometry", {}).get("coordinates", [None, None, 0])
+        if c[0] is None or c[1] is None:
             continue
-        c = line.split("|")
-        if len(c) < 13:
+        # utcTime: "2026-06-27 14:23" (hora UTC, sin segundos garantizados)
+        time_ms = None
+        utc = p.get("utcTime") or ""
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                time_ms = int(dt.datetime.strptime(utc, fmt).replace(tzinfo=dt.timezone.utc).timestamp() * 1000)
+                break
+            except ValueError:
+                continue
+        if time_ms is None:
             continue
         try:
-            time_ms = int(dt.datetime.fromisoformat(c[1].replace("Z", "+00:00")).timestamp() * 1000)
-        except Exception:
-            continue
-        try:
-            mag = float(c[10]) if c[10] else 0
-        except Exception:
+            mag = float(p.get("mag")) if p.get("mag") is not None else 0
+        except (TypeError, ValueError):
             mag = 0
-        try:
-            depth = float(c[4]) if c[4] else 0
-        except Exception:
-            depth = 0
+        # OJO: coordinates del SGC vienen [lat, lon, depth] (NO [lon, lat] como USGS)
+        lat, lon, depth = c[0], c[1], (c[2] if len(c) > 2 else 0)
+        # El feed del SGC cubre Colombia + región; filtrar al bbox de Venezuela
+        if not (BBOX["minlat"] <= lat <= BBOX["maxlat"] and BBOX["minlon"] <= lon <= BBOX["maxlon"]):
+            continue
         out.append({
             "mag": mag,
-            "place": c[12] or "Venezuela",
+            "place": p.get("place") or p.get("closerTowns") or "Venezuela/Colombia",
             "time_ms": time_ms,
-            "lat": float(c[2]), "lon": float(c[3]), "depth": depth,
-            "url": "https://service.iris.edu/fdsnws/event/1/query?eventid=" + c[0],
-            "source": "iris",
+            "lat": lat, "lon": lon, "depth": depth or 0,
+            "url": "https://www.sgc.gov.co/sismos",
+            "source": "sgc",
         })
     return out
 
 
-SOURCES = {"usgs": fetch_usgs, "emsc": fetch_emsc, "funvisis": fetch_funvisis, "iris": fetch_iris}
+SOURCES = {"usgs": fetch_usgs, "emsc": fetch_emsc, "funvisis": fetch_funvisis, "sgc": fetch_sgc}
 
 
 # --------------------------------------------------------------------------
