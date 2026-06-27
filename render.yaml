@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: sismos-venezuela
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir scripts server:app --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: START_DATE
+        value: "2026-06-23"

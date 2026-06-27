@@ -1,0 +1,14 @@
+MONITOR SÍSMICO DE VENEZUELA — versión para publicar en internet (Render)
+==========================================================================
+
+Esta carpeta está lista para subir a GitHub y desde ahí a Render.
+NO necesitás tocar ningún archivo. Solo seguí los pasos que te indica Claude.
+
+Archivos clave:
+- render.yaml ........ configura Render automáticamente
+- requirements.txt ... dependencias (incluye gunicorn para producción)
+- scripts/server.py .. servidor (ya adaptado para nube Y para tu máquina)
+- scripts/index.html . el mapa
+
+La versión para TU MÁQUINA (con doble clic) sigue siendo la otra carpeta.
+Esta es solo para publicarla online.

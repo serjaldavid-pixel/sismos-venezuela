@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor Sísmico · Venezuela</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  :root{
+    --bg:#0B1220; --panel:#101A2E; --panel-2:#162236; --line:#22304A;
+    --text:#E7ECF5; --muted:#7E8CAA; --amber:#F5A623; --red:#E0483E; --green:#3FCB8C;
+    --mono:"IBM Plex Mono","Courier New",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  #app{display:flex;flex-direction:column;height:100vh;}
+  header{background:linear-gradient(180deg,var(--panel) 0%,var(--bg) 100%);border-bottom:1px solid var(--line);padding:14px 18px 10px;flex-shrink:0;}
+  .title-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  h1{font-size:17px;letter-spacing:.02em;margin:0;font-weight:700;}
+  h1 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:13px;}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px;font-family:var(--mono);}
+  #seismo{width:100%;height:34px;margin-top:8px;display:block;}
+  #seismo path{fill:none;stroke:var(--green);stroke-width:1.2;opacity:.8;}
+  #main{flex:1;display:flex;min-height:0;}
+  #map{flex:1;background:#0c1424;}
+  #side{width:330px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;}
+  @media (max-width:760px){
+    #side{position:absolute;right:0;top:0;bottom:0;z-index:500;transform:translateX(100%);transition:transform .25s ease;}
+    #side.open{transform:translateX(0);}
+    #toggleSide{display:inline-flex !important;}
+  }
+  #stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border-bottom:1px solid var(--line);}
+  .stat{background:var(--panel);padding:10px 8px;text-align:center;}
+  .stat b{display:block;font-family:var(--mono);font-size:19px;line-height:1.1;}
+  .stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+  #controls{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  #controls label{font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;}
+  #minMag{flex:1;min-width:60px;}
+  #sources{display:flex;gap:8px;padding:0 12px 10px;border-bottom:1px solid var(--line);font-size:10.5px;color:var(--muted);flex-wrap:wrap;}
+  #sources label{display:flex;align-items:center;gap:5px;cursor:pointer;}
+  #sources input{accent-color:var(--amber);}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  #refreshBtn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:var(--mono);}
+  #refreshBtn:hover{border-color:var(--amber);color:var(--amber);}
+  #refreshBtn.spin svg{animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #toggleSide{display:none;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 9px;cursor:pointer;font-size:12px;}
+  #list{flex:1;overflow-y:auto;}
+  .ev{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:flex-start;}
+  .ev:hover{background:var(--panel-2);}
+  .mag-badge{font-family:var(--mono);font-weight:700;font-size:13px;border-radius:5px;padding:3px 6px;min-width:34px;text-align:center;flex-shrink:0;}
+  .ev-info{flex:1;min-width:0;}
+  .ev-place{font-size:12.5px;line-height:1.3;}
+  .ev-time{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:2px;}
+  .ev-depth{font-size:10px;color:var(--muted);margin-top:1px;}
+  .ev-src{font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-top:2px;font-family:var(--mono);}
+  .src-funvisis{color:#6FB6FF;} .src-usgs{color:#C792EA;} .src-emsc{color:#27D9C5;}
+  footer{padding:8px 12px;border-top:1px solid var(--line);font-size:10px;color:var(--muted);font-family:var(--mono);text-align:center;line-height:1.6;}
+  footer a{color:var(--muted);}
+  #emptyState{padding:30px 16px;color:var(--muted);font-size:12.5px;text-align:center;line-height:1.5;}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;}
+  .leaflet-popup-tip{background:var(--panel);}
+  .leaflet-popup-content{font-family:var(--sans);font-size:12.5px;margin:10px 12px;}
+  .pop-mag{font-family:var(--mono);font-weight:700;font-size:16px;}
+  .pop-place{margin-top:3px;}
+  .pop-meta{margin-top:5px;color:#9aa7c2;font-size:11px;font-family:var(--mono);}
+  .pop-link{display:inline-block;margin-top:6px;font-size:11px;color:var(--amber);text-decoration:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="title-row">
+      <h1>MONITOR SÍSMICO — VENEZUELA <span id="range"></span></h1>
+      <button id="toggleSide">☰ Lista</button>
+    </div>
+    <div class="sub">Fuentes: USGS · EMSC · FUNVISIS (servidor local) · Última actualización: <span id="lastUpdate">—</span></div>
+    <svg id="seismo" viewBox="0 0 600 34" preserveAspectRatio="none"><path id="seismoPath" d=""></path></svg>
+  </header>
+  <div id="main">
+    <div id="map"></div>
+    <div id="side">
+      <div id="stats">
+        <div class="stat"><b id="statCount">—</b><span>Sismos</span></div>
+        <div class="stat"><b id="statMax">—</b><span>Mag. máx.</span></div>
+        <div class="stat"><b id="statLast">—</b><span>Más reciente</span></div>
+      </div>
+      <div id="controls">
+        <label for="minMag">Mag. mín.: <span id="minMagVal">0.0</span></label>
+        <input type="range" id="minMag" min="0" max="6" step="0.1" value="0">
+        <button id="refreshBtn" title="Actualizar ahora">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          Actualizar
+        </button>
+      </div>
+      <div id="sources">
+        <label><input type="checkbox" id="srcFunvisis" checked><span class="dot" style="background:#6FB6FF"></span>FUNVISIS <span id="cFunvisis"></span></label>
+        <label><input type="checkbox" id="srcUsgs" checked><span class="dot" style="background:#C792EA"></span>USGS <span id="cUsgs"></span></label>
+        <label><input type="checkbox" id="srcEmsc" checked><span class="dot" style="background:#27D9C5"></span>EMSC <span id="cEmsc"></span></label>
+      </div>
+      <div id="list"><div id="emptyState">Cargando datos…</div></div>
+      <footer>
+        Servidor local · actualiza cada 5 min<br>
+        <a href="http://www.funvisis.gob.ve/monitor.html" target="_blank" rel="noopener">FUNVISIS ↗</a> ·
+        <a href="https://earthquake.usgs.gov/earthquakes/map" target="_blank" rel="noopener">USGS ↗</a> ·
+        <a href="https://www.seismicportal.eu/" target="_blank" rel="noopener">EMSC ↗</a>
+      </footer>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  var SOURCE_META = {
+    funvisis:{label:'FUNVISIS',color:null,dash:null,icon:'●'},
+    usgs:{label:'USGS',color:'#C792EA',dash:'2,2',icon:'◇'},
+    emsc:{label:'EMSC',color:'#27D9C5',dash:'1,3',icon:'△'}
+  };
+  var allEvents = [];
+
+  var map = L.map('map',{zoomControl:true,attributionControl:true}).setView([9.5,-67],6.5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:18
+  }).addTo(map);
+  var markersLayer = L.layerGroup().addTo(map);
+
+  function magColor(m){ if(m>=5)return '#E0483E'; if(m>=4)return '#F5A623'; if(m>=3)return '#F2D24B'; return '#3FCB8C'; }
+  function magRadius(m){ return Math.max(5,m*3.2); }
+  function fmtTime(ts){ return new Date(ts).toLocaleString('es-VE',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+  function render(){
+    markersLayer.clearLayers();
+    var minMag = parseFloat(document.getElementById('minMag').value);
+    var active = {
+      funvisis: document.getElementById('srcFunvisis').checked,
+      usgs: document.getElementById('srcUsgs').checked,
+      emsc: document.getElementById('srcEmsc').checked
+    };
+    var combined = allEvents.filter(function(ev){ return active[ev.source] && ev.mag >= minMag; });
+
+    var list = document.getElementById('list');
+    if(!combined.length){
+      list.innerHTML = '<div id="emptyState">No hay sismos que coincidan con el filtro actual.</div>';
+    } else {
+      list.innerHTML = '';
+      combined.forEach(function(ev){
+        var color = magColor(ev.mag), meta = SOURCE_META[ev.source] || SOURCE_META.usgs;
+        var marker = L.circleMarker([ev.lat,ev.lon],{
+          radius:magRadius(ev.mag), fillColor:color, color:meta.color||color,
+          weight:meta.color?2:1, dashArray:meta.dash, fillOpacity:0.5
+        }).bindPopup(
+          '<div class="pop-mag" style="color:'+color+'">M '+ev.mag.toFixed(1)+'</div>'+
+          '<div class="pop-place">'+ev.place+'</div>'+
+          '<div class="pop-meta">'+fmtTime(ev.time_ms)+'<br>Profundidad: '+(ev.depth||0).toFixed(1)+' km<br>Fuente: '+meta.label+'</div>'+
+          '<a class="pop-link" href="'+ev.url+'" target="_blank" rel="noopener">Ver fuente ↗</a>'
+        );
+        marker.addTo(markersLayer);
+        var row = document.createElement('div');
+        row.className='ev';
+        row.innerHTML =
+          '<div class="mag-badge" style="background:'+color+'22;color:'+color+';border:1px solid '+color+'55">'+ev.mag.toFixed(1)+'</div>'+
+          '<div class="ev-info"><div class="ev-place">'+ev.place+'</div>'+
+          '<div class="ev-time">'+fmtTime(ev.time_ms)+'</div>'+
+          '<div class="ev-depth">Profundidad '+(ev.depth||0).toFixed(1)+' km</div>'+
+          '<div class="ev-src src-'+ev.source+'">'+meta.icon+' '+meta.label+'</div></div>';
+        row.addEventListener('click',function(){ map.flyTo([ev.lat,ev.lon],9,{duration:0.6}); marker.openPopup(); });
+        list.appendChild(row);
+      });
+    }
+    document.getElementById('statCount').textContent = combined.length;
+    if(combined.length){
+      document.getElementById('statMax').textContent = Math.max.apply(null,combined.map(function(e){return e.mag;})).toFixed(1);
+      document.getElementById('statLast').textContent = Math.max(0,Math.round((Date.now()-combined[0].time_ms)/3600000))+'h';
+    } else {
+      document.getElementById('statMax').textContent='—';
+      document.getElementById('statLast').textContent='—';
+    }
+    drawSeismograph(combined);
+  }
+
+  function drawSeismograph(events){
+    var path=document.getElementById('seismoPath'), w=600, mid=17;
+    if(!events.length){ path.setAttribute('d',''); return; }
+    var times=events.map(function(e){return e.time_ms;});
+    var minT=Math.min.apply(null,times), maxT=Math.max.apply(null,times), span=Math.max(1,maxT-minT);
+    var d='M 0 '+mid;
+    events.slice().sort(function(a,b){return a.time_ms-b.time_ms;}).forEach(function(ev){
+      var x=((ev.time_ms-minT)/span)*w, amp=Math.min(mid-2,(ev.mag||0.5)*4.5);
+      d+=' L '+x.toFixed(1)+' '+(mid-amp).toFixed(1)+' L '+(x+1.5).toFixed(1)+' '+(mid+amp*0.6).toFixed(1)+' L '+(x+3).toFixed(1)+' '+mid;
+    });
+    d+=' L '+w+' '+mid;
+    path.setAttribute('d',d);
+  }
+
+  function setLoading(b){ document.getElementById('refreshBtn').classList.toggle('spin',b); }
+
+  function loadData(){
+    setLoading(true);
+    fetch('/api/sismos').then(function(r){return r.json();}).then(function(data){
+      allEvents = data.events || [];
+      document.getElementById('range').textContent = 'desde ' + (data.start_date||'');
+      var c = data.counts || {};
+      document.getElementById('cFunvisis').textContent = c.funvisis!=null?'('+c.funvisis+')':'';
+      document.getElementById('cUsgs').textContent = c.usgs!=null?'('+c.usgs+')':'';
+      document.getElementById('cEmsc').textContent = c.emsc!=null?'('+c.emsc+')':'';
+      document.getElementById('lastUpdate').textContent = (data.updated||'—') +
+        ((data.errors&&data.errors.length)?' · sin respuesta: '+data.errors.join(' · '):'');
+      render();
+    }).catch(function(e){
+      document.getElementById('list').innerHTML='<div id="emptyState">No se pudo conectar con el servidor local. ¿Está corriendo server.py?</div>';
+    }).finally(function(){ setLoading(false); });
+  }
+
+  function forceRefresh(){
+    setLoading(true);
+    fetch('/api/refresh',{method:'POST'}).then(function(){ loadData(); }).catch(function(){ loadData(); });
+  }
+
+  document.getElementById('minMag').addEventListener('input',function(e){
+    document.getElementById('minMagVal').textContent=parseFloat(e.target.value).toFixed(1); render();
+  });
+  ['srcFunvisis','srcUsgs','srcEmsc'].forEach(function(id){ document.getElementById(id).addEventListener('change',render); });
+  document.getElementById('refreshBtn').addEventListener('click',forceRefresh);
+  document.getElementById('toggleSide').addEventListener('click',function(){ document.getElementById('side').classList.toggle('open'); });
+
+  loadData();
+  setInterval(loadData, 5*60*1000); // sincroniza con la caché del servidor
+})();
+</script>
+</body>
+</html>
