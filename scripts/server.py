@@ -182,7 +182,51 @@ def fetch_funvisis():
     return unique
 
 
-SOURCES = {"usgs": fetch_usgs, "emsc": fetch_emsc, "funvisis": fetch_funvisis}
+def fetch_iris():
+    # IRIS/EarthScope FDSN event service. Formato 'text' (pipe-delimited), liviano.
+    url = (
+        "https://service.iris.edu/fdsnws/event/1/query?format=text"
+        f"&starttime={START_DATE}&endtime={_iso_end()}"
+        f"&minlatitude={BBOX['minlat']}&maxlatitude={BBOX['maxlat']}"
+        f"&minlongitude={BBOX['minlon']}&maxlongitude={BBOX['maxlon']}"
+        "&orderby=time&nodata=404"
+    )
+    r = requests.get(url, headers=HTTP_HEADERS, timeout=TIMEOUT)
+    if r.status_code == 404:
+        return []  # 404 = sin eventos en el rango (respuesta válida del estándar FDSN)
+    r.raise_for_status()
+    out = []
+    # Cabecera: EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName
+    for line in r.text.splitlines():
+        if not line or line.startswith("#") or line.startswith("EventID"):
+            continue
+        c = line.split("|")
+        if len(c) < 13:
+            continue
+        try:
+            time_ms = int(dt.datetime.fromisoformat(c[1].replace("Z", "+00:00")).timestamp() * 1000)
+        except Exception:
+            continue
+        try:
+            mag = float(c[10]) if c[10] else 0
+        except Exception:
+            mag = 0
+        try:
+            depth = float(c[4]) if c[4] else 0
+        except Exception:
+            depth = 0
+        out.append({
+            "mag": mag,
+            "place": c[12] or "Venezuela",
+            "time_ms": time_ms,
+            "lat": float(c[2]), "lon": float(c[3]), "depth": depth,
+            "url": "https://service.iris.edu/fdsnws/event/1/query?eventid=" + c[0],
+            "source": "iris",
+        })
+    return out
+
+
+SOURCES = {"usgs": fetch_usgs, "emsc": fetch_emsc, "funvisis": fetch_funvisis, "iris": fetch_iris}
 
 
 # --------------------------------------------------------------------------
