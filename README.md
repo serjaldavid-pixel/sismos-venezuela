@@ -5,10 +5,10 @@ Servidor local que muestra en vivo todos los sismos de Venezuela combinando
 
 ## Instalación
 
-1. Descomprimí esta carpeta donde tengas tus otros skills, por ejemplo:
-   `C:\Users\ACER NITRO\Desktop\Claude Skills\sismos-venezuela-monitor\`
+1. Descomprimí esta carpeta en cualquiero lugar, por ejemplo el escritorio
+   
 
-2. Asegurate de tener Python instalado (ya lo tenés por tus otros skills).
+2. Asegurate de tener Python instalado
 
 ## Uso
 
@@ -23,12 +23,6 @@ Después abrí `http://localhost:8000` en el navegador.
 
 Para detenerlo: cerrá la ventana negra (o Ctrl+C).
 
-## ¿Por qué esto carga más sismos que el HTML suelto?
-
-Porque el servidor (no el navegador) es quien busca los datos, esquivando el
-bloqueo CORS que impedía leer EMSC y FUNVISIS desde un archivo HTML normal.
-Ahora las tres fuentes cargan completas, incluyendo los microsismos M1-M2 que
-solo registra FUNVISIS.
 
 ## Estructura
 
