@@ -182,22 +182,13 @@ def fetch_funvisis():
     return unique
 
 
-def fetch_sgc():
-    # Servicio Geológico Colombiano — feed GeoJSON oficial (el mismo que usa su visor).
-    # Fuente regional INDEPENDIENTE: detecta sismos en territorio venezolano
-    # (frontera oeste, costa, Andes) con sus propias estaciones.
-    # Endpoint real descubierto vía el visor oficial sgc.gov.co/sismos.
-    url = "https://archive.sgc.gov.co/feed/v1.0.1/summary/sixty_days_4.json"
-    r = requests.get(url, headers=HTTP_HEADERS, timeout=TIMEOUT)
-    r.raise_for_status()
+def _parse_sgc_payload(payload):
     out = []
-    start_ms = int(dt.datetime.fromisoformat(START_DATE + "T00:00:00-04:00").timestamp() * 1000)
-    for f in r.json().get("features", []):
+    for f in payload.get("features", []):
         p = f.get("properties", {})
         c = f.get("geometry", {}).get("coordinates", [None, None, 0])
         if c[0] is None or c[1] is None:
             continue
-        # utcTime: "2026-06-27 14:23" (hora UTC, sin segundos garantizados)
         time_ms = None
         utc = p.get("utcTime") or ""
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
@@ -214,7 +205,6 @@ def fetch_sgc():
             mag = 0
         # OJO: coordinates del SGC vienen [lat, lon, depth] (NO [lon, lat] como USGS)
         lat, lon, depth = c[0], c[1], (c[2] if len(c) > 2 else 0)
-        # El feed del SGC cubre Colombia + región; filtrar al bbox de Venezuela
         if not (BBOX["minlat"] <= lat <= BBOX["maxlat"] and BBOX["minlon"] <= lon <= BBOX["maxlon"]):
             continue
         out.append({
@@ -226,6 +216,38 @@ def fetch_sgc():
             "source": "sgc",
         })
     return out
+
+
+def fetch_sgc():
+    # Servicio Geológico Colombiano — feeds GeoJSON oficiales (los que usa su visor).
+    # Combinamos dos archivos para máxima cobertura:
+    #   - five_days_all : TODOS los sismos (incluye M<4) de los últimos 5 días
+    #   - sixty_days_4  : sismos M4+ de los últimos 60 días (histórico de los grandes)
+    # Se deduplican los eventos repetidos entre ambos.
+    urls = [
+        "https://archive.sgc.gov.co/feed/v1.0.1/summary/five_days_all.json",
+        "https://archive.sgc.gov.co/feed/v1.0.1/summary/sixty_days_4.json",
+    ]
+    merged = []
+    ok = False
+    for u in urls:
+        try:
+            r = requests.get(u, headers=HTTP_HEADERS, timeout=TIMEOUT)
+            r.raise_for_status()
+            merged.extend(_parse_sgc_payload(r.json()))
+            ok = True
+        except Exception:
+            continue
+    if not ok:
+        raise RuntimeError("sin datos")
+    # dedup por (tiempo redondeado a minuto, lat~, lon~)
+    seen, unique = set(), []
+    for ev in merged:
+        key = (round(ev["time_ms"] / 60000), round(ev["lat"], 2), round(ev["lon"], 2))
+        if key not in seen:
+            seen.add(key)
+            unique.append(ev)
+    return unique
 
 
 SOURCES = {"usgs": fetch_usgs, "emsc": fetch_emsc, "funvisis": fetch_funvisis, "sgc": fetch_sgc}
