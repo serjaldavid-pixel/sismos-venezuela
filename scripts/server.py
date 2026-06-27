@@ -51,7 +51,14 @@ CACHE = {"events": [], "updated": None, "errors": [], "counts": {}}
 REFRESH_SECONDS = 300  # 5 minutos
 START_DATE = "2026-06-23"
 
-HTTP_HEADERS = {"User-Agent": "SismosVE-Monitor/1.0 (uso personal)"}
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "es-VE,es;q=0.9,en;q=0.8",
+    "Referer": "https://sismosve.rafnixg.dev/",
+    "Origin": "https://sismosve.rafnixg.dev",
+}
 TIMEOUT = 25
 
 
