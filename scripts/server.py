@@ -41,6 +41,12 @@ except ImportError:
 # Bounding box de Venezuela (+ margen costero/fronterizo razonable)
 BBOX = {"minlat": 0.4, "maxlat": 13.0, "minlon": -73.8, "maxlon": -59.4}
 
+# Bounding box MÁS ESTRICTO solo para el SGC (Colombia). El feed del SGC incluye
+# el "Nido Sísmico de Bucaramanga" (Santander, ~6.7°N -73.1°O): cientos de sismos
+# profundos colombianos que NO son de Venezuela. Subimos el límite sur y oeste para
+# excluir ese nido pero conservar la frontera venezolana real (Táchira, Zulia, Andes).
+BBOX_SGC = {"minlat": 7.3, "maxlat": 13.0, "minlon": -72.6, "maxlon": -59.4}
+
 FUNVISIS_URLS = [
     "https://sismosve.rafnixg.dev/api/sismos",
     "https://sismosve.rafnixg.dev/api/sismos/recent?limit=1000",
@@ -205,7 +211,7 @@ def _parse_sgc_payload(payload):
             mag = 0
         # OJO: coordinates del SGC vienen [lat, lon, depth] (NO [lon, lat] como USGS)
         lat, lon, depth = c[0], c[1], (c[2] if len(c) > 2 else 0)
-        if not (BBOX["minlat"] <= lat <= BBOX["maxlat"] and BBOX["minlon"] <= lon <= BBOX["maxlon"]):
+        if not (BBOX_SGC["minlat"] <= lat <= BBOX_SGC["maxlat"] and BBOX_SGC["minlon"] <= lon <= BBOX_SGC["maxlon"]):
             continue
         out.append({
             "mag": mag,
